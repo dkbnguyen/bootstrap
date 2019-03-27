@@ -1,23 +1,21 @@
+addons:
+  chrome: stable
 language: node_js
 git:
   depth: 3
 node_js:
-  - "6"
-env:
-  matrix:
-    - TWBS_TEST=core
-    - TWBS_TEST=validate-html
-    - TWBS_TEST=browserstack
-before_install:
-  - "export TRAVIS_COMMIT_MSG=\"$(git log --format=%B --no-merges -n 1)\""
-  - echo "$TRAVIS_COMMIT_MSG" | grep '\[skip validator\]'; export TWBS_DO_VALIDATOR=$?; true
-  - echo "$TRAVIS_COMMIT_MSG" | grep '\[skip browserstack\]'; export TWBS_DO_BROWSERSTACK=$?; true
-install:
-  - bundle install --deployment --jobs=3 --retry=3 --clean
-  - npm install
+  - "8"
+  - "10"
+before_script:
+  - google-chrome-stable --product-version
+script:
+  - npm test || travis_terminate 1
+  - if [[ "$TRAVIS_NODE_VERSION" = "10" ]]; then npm run linkinator; fi
+  - if [[ "$TRAVIS_NODE_VERSION" = "10" && "$TRAVIS_EVENT_TYPE" = "push" && ! `git log --format=%B --no-merges -n 1 | grep '\[skip browser\]'` ]]; then npm run js-test-cloud; fi
+after_success:
+  - if [[ "$TRAVIS_NODE_VERSION" = "10" ]]; then npm run coveralls; fi
 cache:
   directories:
-    - node_modules
-    - vendor/bundle
+    - "$HOME/.npm"
 notifications:
   email: false
