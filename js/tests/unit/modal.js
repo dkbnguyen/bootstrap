@@ -2,7 +2,6 @@ $(function () {
   'use strict'
 
   window.Util = typeof bootstrap !== 'undefined' ? bootstrap.Util : Util
-  var Modal = typeof window.bootstrap !== 'undefined' ? window.bootstrap.Modal : window.Modal
 
   QUnit.module('modal plugin')
 
@@ -210,12 +209,9 @@ $(function () {
       .on('shown.bs.modal', function () {
         assert.ok($('#modal-test').length, 'modal inserted into dom')
         assert.ok($('#modal-test').is(':visible'), 'modal visible')
-
-        var evt = document.createEvent('HTMLEvents')
-        evt.initEvent('keydown', true, true)
-        evt.which = 27
-
-        $div[0].dispatchEvent(evt)
+        $div.trigger($.Event('keydown', {
+          which: 27
+        }))
 
         setTimeout(function () {
           assert.ok(!$('#modal-test').is(':visible'), 'modal hidden')
@@ -284,6 +280,23 @@ $(function () {
       .bootstrapModal('show')
   })
 
+  QUnit.test('should add aria-modal attribute when shown, remove it again when hidden', function (assert) {
+    assert.expect(3)
+    var done = assert.async()
+
+    $('<div id="modal-test"/>')
+      .on('shown.bs.modal', function () {
+        assert.ok($('#modal-test').is('[aria-modal]'), 'aria-modal attribute added')
+        assert.strictEqual($('#modal-test').attr('aria-modal'), 'true', 'correct aria-modal="true" added')
+        $(this).bootstrapModal('hide')
+      })
+      .on('hidden.bs.modal', function () {
+        assert.notOk($('#modal-test').is('[aria-modal]'), 'aria-modal attribute removed')
+        done()
+      })
+      .bootstrapModal('show')
+  })
+
   QUnit.test('should close reopened modal with [data-dismiss="modal"] click', function (assert) {
     assert.expect(2)
     var done = assert.async()
@@ -295,19 +308,15 @@ $(function () {
       .one('hidden.bs.modal', function () {
         // After one open-close cycle
         assert.ok(!$('#modal-test').is(':visible'), 'modal hidden')
-
-        var $this = $(this)
-        setTimeout(function () {
-          $this
-            .one('shown.bs.modal', function () {
-              $('#close').trigger('click')
-            })
-            .one('hidden.bs.modal', function () {
-              assert.ok(!$('#modal-test').is(':visible'), 'modal hidden')
-              done()
-            })
-            .bootstrapModal('show')
-        }, 0)
+        $(this)
+          .one('shown.bs.modal', function () {
+            $('#close').trigger('click')
+          })
+          .one('hidden.bs.modal', function () {
+            assert.ok(!$('#modal-test').is(':visible'), 'modal hidden')
+            done()
+          })
+          .bootstrapModal('show')
       })
       .bootstrapModal('show')
   })
@@ -406,7 +415,7 @@ $(function () {
 
     $('<div id="modal-test"/>')
       .on('hidden.bs.modal', function () {
-        assert.strictEqual(document.body.getAttribute('data-padding-right'), null, 'data-padding-right should be cleared after closing')
+        assert.strictEqual(typeof $body.data('padding-right'), 'undefined', 'data-padding-right should be cleared after closing')
         $body.removeAttr('style')
         done()
       })
@@ -472,7 +481,7 @@ $(function () {
 
     $('<div id="modal-test"/>')
       .on('hidden.bs.modal', function () {
-        assert.strictEqual($element[0].getAttribute('data-padding-right'), null, 'data-padding-right should be cleared after closing')
+        assert.strictEqual(typeof $element.data('padding-right'), 'undefined', 'data-padding-right should be cleared after closing')
         $element.remove()
         done()
       })
@@ -514,7 +523,7 @@ $(function () {
 
     $('<div id="modal-test"/>')
       .on('hidden.bs.modal', function () {
-        assert.strictEqual($element[0].getAttribute('data-margin-right'), null, 'data-margin-right should be cleared after closing')
+        assert.strictEqual(typeof $element.data('margin-right'), 'undefined', 'data-margin-right should be cleared after closing')
         $element.remove()
         done()
       })
@@ -533,7 +542,7 @@ $(function () {
 
     $('<div id="modal-test"/>')
       .on('hidden.bs.modal', function () {
-        assert.strictEqual($body.css('padding-left'), '0px', 'body does not have inline padding set')
+        assert.strictEqual($body.attr('style').indexOf('padding-right'), -1, 'body does not have inline padding set')
         $style.remove()
         done()
       })
@@ -586,6 +595,7 @@ $(function () {
 
   QUnit.test('should not follow link in area tag', function (assert) {
     assert.expect(2)
+    var done = assert.async()
 
     $('<map><area id="test" shape="default" data-toggle="modal" data-target="#modal-test" href="demo.html"/></map>')
       .appendTo('#qunit-fixture')
@@ -593,19 +603,53 @@ $(function () {
     $('<div id="modal-test"><div class="contents"><div id="close" data-dismiss="modal"/></div></div>')
       .appendTo('#qunit-fixture')
 
-    // We need to use CustomEvent here to have a working preventDefault in IE tests.
-    var evt = new CustomEvent('click', {
-      bubbles: true,
-      cancelable: true
-    })
-
     $('#test')
       .on('click.bs.modal.data-api', function (event) {
-        assert.notOk(event.defaultPrevented, 'navigating to href will happen')
-      })
+        assert.notOk(event.isDefaultPrevented(), 'navigating to href will happen')
 
-    $('#test')[0].dispatchEvent(evt)
-    assert.ok(evt.defaultPrevented, 'model shown instead of navigating to href')
+        setTimeout(function () {
+          assert.ok(event.isDefaultPrevented(), 'model shown instead of navigating to href')
+          done()
+        }, 1)
+      })
+      .trigger('click')
+  })
+
+  QUnit.test('should not parse target as html', function (assert) {
+    assert.expect(1)
+    var done = assert.async()
+
+    var $toggleBtn = $('<button data-toggle="modal" data-target="&lt;div id=&quot;modal-test&quot;&gt;&lt;div class=&quot;contents&quot;&lt;div&lt;div id=&quot;close&quot; data-dismiss=&quot;modal&quot;/&gt;&lt;/div&gt;&lt;/div&gt;"/>')
+      .appendTo('#qunit-fixture')
+
+    $toggleBtn.trigger('click')
+    setTimeout(function () {
+      assert.strictEqual($('#modal-test').length, 0, 'target has not been parsed and added to the document')
+      done()
+    }, 0)
+  })
+
+  QUnit.test('should not execute js from target', function (assert) {
+    assert.expect(0)
+    var done = assert.async()
+
+    // This toggle button contains XSS payload in its data-target
+    // Note: it uses the onerror handler of an img element to execute the js, because a simple script element does not work here
+    //       a script element works in manual tests though, so here it is likely blocked by the qunit framework
+    var $toggleBtn = $('<button data-toggle="modal" data-target="&lt;div&gt;&lt;image src=&quot;missing.png&quot; onerror=&quot;$(&apos;#qunit-fixture button.control&apos;).trigger(&apos;click&apos;)&quot;&gt;&lt;/div&gt;"/>')
+      .appendTo('#qunit-fixture')
+    // The XSS payload above does not have a closure over this function and cannot access the assert object directly
+    // However, it can send a click event to the following control button, which will then fail the assert
+    $('<button>')
+      .addClass('control')
+      .on('click', function () {
+        assert.notOk(true, 'XSS payload is not executed as js')
+      })
+      .appendTo('#qunit-fixture')
+
+    $toggleBtn.trigger('click')
+
+    setTimeout(done, 500)
   })
 
   QUnit.test('should not try to open a modal which is already visible', function (assert) {
@@ -625,7 +669,7 @@ $(function () {
   })
 
   QUnit.test('transition duration should be the modal-dialog duration before triggering shown event', function (assert) {
-    assert.expect(2)
+    assert.expect(1)
     var done = assert.async()
     var style = [
       '<style>',
@@ -650,26 +694,21 @@ $(function () {
       '</div>'
     ].join('')
 
-    var beginTimestamp = 0
     var $modal = $(modalHTML).appendTo('#qunit-fixture')
-    var $modalDialog = $('.modal-dialog')
-    var transitionDuration  = Util.getTransitionDurationFromElement($modalDialog[0])
-
-    assert.strictEqual(transitionDuration, 300)
+    var expectedTransitionDuration = 300
+    var spy = sinon.spy(Util, 'getTransitionDurationFromElement')
 
     $modal.on('shown.bs.modal', function () {
-      var diff = Date.now() - beginTimestamp
-      assert.ok(diff < 400)
+      assert.ok(spy.returned(expectedTransitionDuration))
       $style.remove()
+      spy.restore()
       done()
     })
       .bootstrapModal('show')
-
-    beginTimestamp = Date.now()
   })
 
   QUnit.test('should dispose modal', function (assert) {
-    assert.expect(2)
+    assert.expect(3)
     var done = assert.async()
 
     var $modal = $([
@@ -683,19 +722,31 @@ $(function () {
     ].join('')).appendTo('#qunit-fixture')
 
     $modal.on('shown.bs.modal', function () {
-      var modal = Modal._getInstance($modal[0])
-      var spy = sinon.spy($modal[0], 'removeEventListener')
+      var spy = sinon.spy($.fn, 'off')
 
-      modal.dispose()
+      $(this).bootstrapModal('dispose')
 
-      assert.ok(!Modal._getInstance($modal[0]), 'modal data object was disposed')
-      assert.ok(spy.called)
+      var modalDataApiEvent = []
+      $._data(document, 'events').click
+        .forEach(function (e) {
+          if (e.namespace === 'bs.data-api.modal') {
+            modalDataApiEvent.push(e)
+          }
+        })
+
+      assert.ok(typeof $(this).data('bs.modal') === 'undefined', 'modal data object was disposed')
+
+      assert.ok(spy.callCount === 4, '`jQuery.off` was called')
+
+      assert.ok(modalDataApiEvent.length === 1, '`Event.CLICK_DATA_API` on `document` was not removed')
+
+      $.fn.off.restore()
       done()
     }).bootstrapModal('show')
   })
 
   QUnit.test('should enforce focus', function (assert) {
-    assert.expect(2)
+    assert.expect(4)
     var done = assert.async()
 
     var $modal = $([
@@ -710,26 +761,54 @@ $(function () {
       .bootstrapModal()
       .appendTo('#qunit-fixture')
 
-    var modal = Modal._getInstance($modal[0])
+    var modal = $modal.data('bs.modal')
     var spy = sinon.spy(modal, '_enforceFocus')
+    var spyDocOff = sinon.spy($(document), 'off')
+    var spyDocOn = sinon.spy($(document), 'on')
 
     $modal.one('shown.bs.modal', function () {
       assert.ok(spy.called, '_enforceFocus called')
+      assert.ok(spyDocOff.withArgs('focusin.bs.modal'))
+      assert.ok(spyDocOn.withArgs('focusin.bs.modal'))
+
       var spyFocus = sinon.spy(modal._element, 'focus')
-
-      function focusInListener() {
-        assert.ok(spyFocus.called)
-        document.removeEventListener('focusin', focusInListener)
-        done()
-      }
-      document.addEventListener('focusin', focusInListener)
-
-      var focusInEvent = new Event('focusin')
-      Object.defineProperty(focusInEvent, 'target', {
-        value: $('#qunit-fixture')[0]
+      var event = $.Event('focusin', {
+        target: $('#qunit-fixture')[0]
       })
 
-      document.dispatchEvent(focusInEvent)
+      $(document).one('focusin', function () {
+        assert.ok(spyFocus.called)
+        done()
+      })
+
+      $(document).trigger(event)
+    })
+      .bootstrapModal('show')
+  })
+
+  QUnit.test('should scroll to top of the modal body if the modal has .modal-dialog-scrollable class', function (assert) {
+    assert.expect(2)
+    var done = assert.async()
+
+    var $modal = $([
+      '<div id="modal-test">',
+      '  <div class="modal-dialog modal-dialog-scrollable">',
+      '    <div class="modal-content">',
+      '      <div class="modal-body" style="height: 100px; overflow-y: auto;">',
+      '        <div style="height: 200px" />',
+      '      </div>',
+      '    </div>',
+      '  </div>',
+      '</div>'
+    ].join('')).appendTo('#qunit-fixture')
+
+    var $modalBody = $('.modal-body')
+    $modalBody.scrollTop(100)
+    assert.strictEqual($modalBody.scrollTop(), 100)
+
+    $modal.on('shown.bs.modal', function () {
+      assert.strictEqual($modalBody.scrollTop(), 0, 'modal body scrollTop should be 0 when opened')
+      done()
     })
       .bootstrapModal('show')
   })

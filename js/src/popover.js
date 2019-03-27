@@ -1,6 +1,6 @@
 /**
  * --------------------------------------------------------------------------
- * Bootstrap (v4.1.3): popover.js
+ * Bootstrap (v4.3.1): popover.js
  * Licensed under MIT (https://github.com/twbs/bootstrap/blob/master/LICENSE)
  * --------------------------------------------------------------------------
  */
@@ -17,7 +17,7 @@ import Util from './util'
  */
 
 const NAME                = 'popover'
-const VERSION             = '4.1.3'
+const VERSION             = '4.3.1'
 const DATA_KEY            = 'bs.popover'
 const EVENT_KEY           = `.${DATA_KEY}`
 const CLASS_PREFIX        = 'bs-popover'

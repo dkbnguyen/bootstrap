@@ -1,14 +1,14 @@
 /* eslint-env node */
 /* eslint no-process-env: 0 */
+
+const path = require('path')
 const ip = require('ip')
 const {
   browsers,
   browsersKeys
 } = require('./browsers')
-const path = require('path')
-const jsCoveragePath = path.resolve(__dirname, '../coverage')
 
-const jqueryFile = process.env.USE_OLD_JQUERY ? 'https://code.jquery.com/jquery-1.9.1.min.js' : 'site/docs/4.1/assets/js/vendor/jquery-slim.min.js'
+const jqueryFile = process.env.USE_OLD_JQUERY ? 'https://code.jquery.com/jquery-1.9.1.min.js' : 'node_modules/jquery/dist/jquery.slim.min.js'
 const bundle = process.env.BUNDLE === 'true'
 const browserStack = process.env.BROWSER === 'true'
 
@@ -92,18 +92,10 @@ if (bundle) {
   conf.browsers = browsersKeys
   reporters.push('BrowserStack')
   files = files.concat([
-    'site/docs/4.1/assets/js/vendor/jquery-slim.min.js',
-    'js/coverage/dist/util.js',
-    'js/coverage/dist/dom/polyfill.js',
-    'js/coverage/dist/dom/eventHandler.js',
-    'js/coverage/dist/dom/selectorEngine.js',
-    'js/coverage/dist/dom/data.js',
-    'js/coverage/dist/dom/manipulator.js',
-    'js/coverage/dist/dom/!(polyfill).js',
-    'js/coverage/dist/tooltip.js',
-    'js/coverage/dist/!(util|index|tooltip).js', // include all of our js/dist files except util.js, index.js and tooltip.js
-    'js/tests/unit/*.js',
-    'js/tests/unit/dom/*.js'
+    'node_modules/jquery/dist/jquery.slim.min.js',
+    'js/dist/util.js',
+    'js/dist/tooltip.js',
+    'js/dist/!(util|index|tooltip).js' // include all of our js/dist files except util.js, index.js and tooltip.js
   ])
 } else {
   frameworks.push('detectBrowsers')
@@ -116,22 +108,14 @@ if (bundle) {
   files = files.concat([
     jqueryFile,
     'js/coverage/dist/util.js',
-    'js/coverage/dist/dom/polyfill.js',
-    'js/coverage/dist/dom/eventHandler.js',
-    'js/coverage/dist/dom/selectorEngine.js',
-    'js/coverage/dist/dom/data.js',
-    'js/coverage/dist/dom/manipulator.js',
-    'js/coverage/dist/dom/!(polyfill).js',
     'js/coverage/dist/tooltip.js',
-    'js/coverage/dist/!(util|index|tooltip).js', // include all of our js/dist files except util.js, index.js and tooltip.js
-    'js/tests/unit/*.js',
-    'js/tests/unit/dom/*.js'
+    'js/coverage/dist/!(util|index|tooltip).js' // include all of our js/dist files except util.js, index.js and tooltip.js
   ])
   reporters.push('coverage-istanbul')
   conf.customLaunchers = customLaunchers
   conf.detectBrowsers = detectBrowsers
   conf.coverageIstanbulReporter = {
-    dir: jsCoveragePath,
+    dir: path.resolve(__dirname, '../coverage/'),
     reports: ['lcov', 'text-summary'],
     thresholds: {
       emitWarning: false,
@@ -140,16 +124,6 @@ if (bundle) {
         branches: 86,
         functions: 89,
         lines: 90
-      },
-      each: {
-        overrides: {
-          'js/src/dom/polyfill.js': {
-            statements: 39,
-            lines: 37,
-            branches: 19,
-            functions: 50
-          }
-        }
       }
     }
   }
